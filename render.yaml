@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: rupeezy-dashboard
+    env: python
+    buildCommand: bash build.sh
+    startCommand: gunicorn --worker-class eventlet -w 1 --chdir backend app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: RUPEEZY_API_SECRET
+        sync: false
+      - key: RUPEEZY_APPLICATION_ID
+        sync: false
+      - key: RUPEEZY_ACCESS_TOKEN
+        sync: false
+      - key: RUPEEZY_REDIRECT_URL
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/backend
+      sizeGB: 1
