@@ -1,6 +1,6 @@
-# Nixpacks config — tells Railway to install both Python 3.11 and Node 20
+# Railpack/Nixpacks config — Python only (frontend is pre-built)
 [phases.setup]
-nixPkgs = ["python311", "nodejs_20", "nodePackages.npm"]
+nixPkgs = ["python311"]
 
 [phases.build]
 cmds = ["bash build.sh"]
