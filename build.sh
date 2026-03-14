@@ -9,6 +9,12 @@ if ! command -v "$PYTHON" >/dev/null 2>&1; then
 fi
 echo "==> $($PYTHON --version 2>&1)"
 
+# Ensure pip is available (Railpack image may not have it)
+if ! "$PYTHON" -m pip --version >/dev/null 2>&1; then
+  echo "==> Bootstrapping pip..."
+  "$PYTHON" -m ensurepip --upgrade
+fi
+
 echo ""
 echo "==> Installing Python dependencies..."
 cd backend
