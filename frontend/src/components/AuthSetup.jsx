@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { KeyRound, LogIn, Eye, EyeOff, Wifi, FlaskConical, CheckCircle2, AlertCircle } from "lucide-react";
+import { KeyRound, LogIn, Wifi, FlaskConical, CheckCircle2, AlertCircle } from "lucide-react";
 import { getAuthConfig, getLoginUrl, setAccessToken, exchangeToken } from "../utils/api";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
@@ -8,14 +8,9 @@ import { useAuth } from "../context/AuthContext";
 export default function AuthSetup() {
   const { checkStatus } = useAuth();
 
-  // Credentials state — pre-filled from .env when available
-  const [apiSecret,     setApiSecret]     = useState("");
-  const [applicationId, setApplicationId] = useState("");
   const [accessToken,   setAccessTokenVal] = useState("");
   const [authCode,      setAuthCode]       = useState("");
 
-  // UI state
-  const [showSecret,    setShowSecret]    = useState(false);
   const [showToken,     setShowToken]     = useState(false);
   const [loading,       setLoading]       = useState(false);
   const [demoLoading,   setDemoLoading]   = useState(false);
@@ -45,13 +40,7 @@ export default function AuthSetup() {
   const handleOAuth = async () => {
     setLoading(true);
     try {
-      // Only send credentials if the user typed something — otherwise the
-      // backend will fall back to .env values automatically
-      const body = {};
-      if (apiSecret.trim())     body.api_secret     = apiSecret.trim();
-      if (applicationId.trim()) body.application_id = applicationId.trim();
-
-      const res = await getLoginUrl(body);
+      const res = await getLoginUrl({});
       window.open(res.data.login_url, "_blank", "noopener,noreferrer");
       toast.success("Login page opened in a new tab. Authorise there and return here.");
     } catch (err) {
@@ -138,7 +127,7 @@ export default function AuthSetup() {
         <div className="card bg-base-200 border border-base-300 shadow-xl">
           <div className="card-body gap-4">
 
-            {/* .env status pill */}
+            {/* .env status */}
             {(envHasSecret || envHasAppId || envHasToken) && (
               <div className={`alert py-2 text-xs ${envReady ? "alert-success" : "alert-warning"}`}>
                 {envReady
@@ -146,10 +135,10 @@ export default function AuthSetup() {
                   : <AlertCircle  className="w-4 h-4 shrink-0" />
                 }
                 <div>
-                  <span className="font-semibold">.env detected — </span>
+                  <span className="font-semibold">Environment — </span>
                   {envReady
-                    ? "API credentials loaded. Click Login below."
-                    : "Partial credentials found. Fill in the missing fields."
+                    ? "API credentials loaded from env. Click Login below."
+                    : "Add RUPEEZY_API_SECRET and RUPEEZY_APPLICATION_ID to your server env (e.g. .env or Railway Variables), then refresh."
                   }
                   {envHasToken && <span className="block mt-0.5 text-base-content/70">Access token present — try the Direct Token tab.</span>}
                 </div>
@@ -183,66 +172,19 @@ export default function AuthSetup() {
 
             {tab === "oauth" && (
               <>
-                {envReady ? (
-                  /* Credentials already in .env — show a clean one-click login */
+                {envReady && (
                   <div className="alert alert-info text-xs py-2">
                     <Wifi className="w-4 h-4 shrink-0" />
                     <span>
-                      Credentials read from <code className="font-mono">.env</code>.
-                      Click below to open the Rupeezy login page.
+                      Credentials loaded from environment. Click below to open the Rupeezy login page.
                     </span>
                   </div>
-                ) : (
-                  /* Missing from .env — show manual entry fields */
-                  <>
-                    <div className="alert alert-warning text-xs py-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>Add credentials to <code className="font-mono">.env</code> to skip these fields next time.</span>
-                    </div>
-
-                    {/* API Secret */}
-                    <div className="form-control gap-1">
-                      <label className="label py-0">
-                        <span className="label-text font-medium">API Secret</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showSecret ? "text" : "password"}
-                          placeholder="Your Vortex API Secret"
-                          className="input input-bordered w-full pr-10 font-mono text-sm"
-                          value={apiSecret}
-                          onChange={(e) => setApiSecret(e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-base-content"
-                          onClick={() => setShowSecret(!showSecret)}
-                        >
-                          {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Application ID */}
-                    <div className="form-control gap-1">
-                      <label className="label py-0">
-                        <span className="label-text font-medium">Application ID</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Your Vortex Application ID"
-                        className="input input-bordered w-full font-mono text-sm"
-                        value={applicationId}
-                        onChange={(e) => setApplicationId(e.target.value)}
-                      />
-                    </div>
-                  </>
                 )}
 
                 <button
                   className="btn btn-primary w-full gap-2"
                   onClick={handleOAuth}
-                  disabled={loading || (!envReady && (!apiSecret || !applicationId))}
+                  disabled={loading || !envReady}
                 >
                   {loading
                     ? <span className="loading loading-spinner loading-sm" />
