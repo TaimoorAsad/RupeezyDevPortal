@@ -17,12 +17,11 @@ export default function AuthSetup() {
   const [configLoading, setConfigLoading] = useState(true);
   const [tab,           setTab]           = useState("oauth"); // oauth | authcode | token
 
-  // Whether .env already has credentials
   const [envHasSecret,  setEnvHasSecret]  = useState(false);
   const [envHasAppId,   setEnvHasAppId]   = useState(false);
   const [envHasToken,   setEnvHasToken]   = useState(false);
+  const [missingEnv,    setMissingEnv]    = useState([]);
 
-  // Load config from backend (.env presence check)
   useEffect(() => {
     getAuthConfig()
       .then((res) => {
@@ -30,6 +29,7 @@ export default function AuthSetup() {
         setEnvHasSecret(cfg.has_api_secret);
         setEnvHasAppId(cfg.has_application_id);
         setEnvHasToken(cfg.has_access_token);
+        setMissingEnv(cfg.missing || []);
       })
       .catch(() => {})
       .finally(() => setConfigLoading(false));
@@ -128,17 +128,26 @@ export default function AuthSetup() {
           <div className="card-body gap-4">
 
             {/* .env status */}
-            {(envHasSecret || envHasAppId || envHasToken) && (
+            {(envHasSecret || envHasAppId || envHasToken || missingEnv.length > 0) && (
               <div className={`alert py-2 text-xs ${envReady ? "alert-success" : "alert-warning"}`}>
                 {envReady
                   ? <CheckCircle2 className="w-4 h-4 shrink-0" />
                   : <AlertCircle  className="w-4 h-4 shrink-0" />
                 }
                 <div>
-                  <span className="font-semibold">Environment — </span>
+                  <span className="font-semibold">{envReady ? "Ready — " : "Missing credentials — "}</span>
                   {envReady
-                    ? "API credentials loaded from env. Click Login below."
-                    : "Add RUPEEZY_API_SECRET and RUPEEZY_APPLICATION_ID to your server env (e.g. .env or Railway Variables), then refresh."
+                    ? "API credentials loaded from environment. Click Login below."
+                    : (
+                      <>
+                        {missingEnv.length > 0 && (
+                          <span className="block mt-0.5 font-mono text-error/90">{missingEnv.join(", ")}</span>
+                        )}
+                        <span className="block mt-1">
+                          Add them to your server environment. On Railway: Project → your service → Variables. Use these exact names (case-sensitive). Then redeploy and refresh.
+                        </span>
+                      </>
+                    )
                   }
                   {envHasToken && <span className="block mt-0.5 text-base-content/70">Access token present — try the Direct Token tab.</span>}
                 </div>
