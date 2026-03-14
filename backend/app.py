@@ -11,7 +11,9 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from flask_socketio import SocketIO
 
-load_dotenv()
+# Load .env from backend/ so it works whether cwd is repo root or backend/
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(_env_path)
 
 logging.basicConfig(
     level=logging.INFO,
