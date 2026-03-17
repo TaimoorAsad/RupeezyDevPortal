@@ -630,15 +630,40 @@ def _auto_start_from_env():
 
 @app.errorhandler(_requests.exceptions.HTTPError)
 def handle_http_error(exc):
-    """Catch 401/403 from Rupeezy SDK and tell the frontend to re-authenticate."""
-    if exc.response is not None and exc.response.status_code == 401:
+    """Catch 401/403 from Rupeezy SDK and return a useful payload."""
+    status = exc.response.status_code if exc.response is not None else None
+
+    details = None
+    if exc.response is not None:
+        try:
+            details = exc.response.json()
+        except Exception:
+            try:
+                details = exc.response.text
+            except Exception:
+                details = None
+
+    # Expired/invalid session
+    if status == 401:
         auth.logout()
         return jsonify({
             "success": False,
             "message": "Session expired. Please log in again.",
             "reauth": True,
+            "details": details,
         }), 401
-    return jsonify({"success": False, "message": str(exc)}), 502
+
+    # Forbidden typically means: missing trading permission / POA / IP restriction / wrong product for symbol
+    if status == 403:
+        return jsonify({
+            "success": False,
+            "message": "Order rejected (403 Forbidden). Check Rupeezy permissions/POA and order parameters.",
+            "forbidden": True,
+            "details": details,
+        }), 403
+
+    code = status or 502
+    return jsonify({"success": False, "message": str(exc), "details": details}), code
 
 
 # ── Serve React SPA (production) ──────────────────────────────────────────────
