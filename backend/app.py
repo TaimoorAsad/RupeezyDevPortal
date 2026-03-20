@@ -304,6 +304,37 @@ def get_orders():
         return jsonify({"success": False, "message": str(exc)}), 500
 
 
+def _http_error_payload(exc: _requests.exceptions.HTTPError) -> tuple[dict, int]:
+    """Rupeezy error body + status for API responses."""
+    resp = exc.response
+    status = resp.status_code if resp is not None else 502
+    details = None
+    if resp is not None:
+        try:
+            details = resp.json()
+        except Exception:
+            try:
+                details = resp.text[:2000] if resp.text else None
+            except Exception:
+                details = None
+    if status == 401:
+        auth.logout()
+        return {
+            "success": False,
+            "message": "Session expired. Please log in again.",
+            "reauth": True,
+            "details": details,
+        }, 401
+    if status == 403:
+        return {
+            "success": False,
+            "message": "Order rejected (403). Often: POA not active, index/non-tradeable symbol, or invalid product for segment. Check `details`.",
+            "forbidden": True,
+            "details": details,
+        }, 403
+    return {"success": False, "message": str(exc), "details": details}, status
+
+
 @app.route("/api/orders", methods=["POST"])
 @auth.require_auth
 def place_order():
@@ -313,6 +344,14 @@ def place_order():
         return jsonify({"success": True, "data": result})
     except (ValueError, KeyError) as exc:
         return jsonify({"success": False, "message": str(exc)}), 400
+    except _requests.exceptions.HTTPError as exc:
+        logger.error(
+            "Order placement HTTP error: %s | body=%s",
+            exc,
+            exc.response.text[:500] if exc.response is not None else None,
+        )
+        body, code = _http_error_payload(exc)
+        return jsonify(body), code
     except Exception as exc:
         logger.exception("Order placement failed")
         return jsonify({"success": False, "message": str(exc)}), 500
