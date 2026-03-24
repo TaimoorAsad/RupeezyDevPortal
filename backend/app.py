@@ -693,6 +693,26 @@ def _auto_start_from_env():
             logger.warning("Auto-start WebSocket failed (token may be expired): %s", exc)
 
 
+def _log_public_egress_ip() -> None:
+    """
+    Log the server's public egress IP.
+    Useful for broker allowlisting (e.g. IP_NOT_ALLOWED).
+    """
+    try:
+        resp = _requests.get("https://api.ipify.org", timeout=5)
+        ip = (resp.text or "").strip()
+        if resp.ok and ip:
+            logger.info("Public egress IP (allowlist this in broker portal): %s", ip)
+        else:
+            logger.warning(
+                "Could not determine public egress IP. status=%s body=%s",
+                resp.status_code,
+                (resp.text or "")[:120],
+            )
+    except Exception as exc:
+        logger.warning("Failed to fetch public egress IP: %s", exc)
+
+
 @app.errorhandler(_requests.exceptions.HTTPError)
 def handle_http_error(exc):
     """Catch 401/403 from Rupeezy SDK and return a useful payload."""
@@ -754,6 +774,7 @@ def _init_runtime_once():
     if _runtime_inited:
         return
     sched_module.init(socketio=socketio)
+    _log_public_egress_ip()
     _runtime_inited = True
 
 
