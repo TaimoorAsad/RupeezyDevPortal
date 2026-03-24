@@ -49,6 +49,10 @@ def init(socketio=None) -> None:
     global _scheduler, _socketio
     _socketio = socketio
 
+    # Idempotent init (important under gunicorn import/reload paths)
+    if _scheduler is not None:
+        return
+
     _scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
     _scheduler.start()
 

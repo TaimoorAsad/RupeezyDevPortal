@@ -32,10 +32,26 @@ app = Flask(
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-me-in-production")
 
-# Allow the dev Vite origin; in production everything is same-origin
-_cors_origins = os.environ.get(
-    "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
-).split(",")
+# CORS / Socket origins
+# Priority:
+# 1) CORS_ORIGINS env (comma-separated) if explicitly provided
+# 2) sensible defaults including Railway public domain and FRONTEND_URL
+_cors_from_env = os.environ.get("CORS_ORIGINS", "").strip()
+if _cors_from_env:
+    _cors_origins = [x.strip() for x in _cors_from_env.split(",") if x.strip()]
+else:
+    _cors_set = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
+    _frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+    if _frontend_url:
+        _cors_set.add(_frontend_url.rstrip("/"))
+    _railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+    if _railway_domain:
+        _cors_set.add(f"https://{_railway_domain}")
+    _cors_origins = sorted(_cors_set)
+
 CORS(app, supports_credentials=True, origins=_cors_origins)
 
 socketio = SocketIO(
@@ -170,6 +186,16 @@ def get_login_url():
     os.environ["RUPEEZY_APPLICATION_ID"] = application_id
 
     redirect_url = data.get("redirect_url", "").strip() or os.environ.get("RUPEEZY_REDIRECT_URL", "http://127.0.0.1:5000/callback")
+    # If production request comes in and env still points to localhost,
+    # fallback to current host callback automatically.
+    if (
+        ("127.0.0.1" in redirect_url or "localhost" in redirect_url)
+        and request.host
+        and "localhost" not in request.host
+        and "127.0.0.1" not in request.host
+    ):
+        redirect_url = request.url_root.rstrip("/") + "/callback"
+        logger.warning("RUPEEZY_REDIRECT_URL was localhost; auto-using callback %s", redirect_url)
 
     try:
         url = auth.get_login_url(api_secret, application_id, redirect_url)
@@ -719,8 +745,22 @@ if _SERVE_FRONTEND:
         return app.send_static_file("index.html")
 
 
+# Runtime init for both gunicorn and local python app.py
+_runtime_inited = False
+
+
+def _init_runtime_once():
+    global _runtime_inited
+    if _runtime_inited:
+        return
+    sched_module.init(socketio=socketio)
+    _runtime_inited = True
+
+
+_init_runtime_once()
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     _auto_start_from_env()
-    sched_module.init(socketio=socketio)
     socketio.run(app, host="0.0.0.0", port=port, debug=True, allow_unsafe_werkzeug=True)
